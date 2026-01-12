@@ -1,0 +1,12 @@
+# Ignore node_modules and dist in UI
+UI/node_modules/
+UI/dist/
+
+# Ignore bin and obj in .NET projects
+**/bin/
+**/obj/
+
+# Ignore publish folder in Todo.WebAPI
+TaskManagementApp/src/Todo.WebAPI/publish/
+# Ignore user-specific files
+*.user
