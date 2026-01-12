@@ -391,21 +391,21 @@ export default function TasksPage() {
                             fontSize="small"
                             sx={{ mr: 0.5, verticalAlign: "middle" }}
                           />
-                          {t.createdDate}
+                          Created-{fmt(t.createdDate.slice(0, 10))}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           <CalendarMonthIcon
                             fontSize="small"
                             sx={{ mr: 0.5, verticalAlign: "middle" }}
                           />
-                          {t.startDate} - {t.endDate}
+                          from-{fmt(t.startDate.slice(0, 10))} to-{fmt(t.endDate.slice(0, 10) )}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           <AccessTimeIcon
                             fontSize="small"
                             sx={{ mr: 0.5, verticalAlign: "middle" }}
                           />
-                          {t.totalHours?.toFixed(2)} hrs
+                          {t.totalHours?.toFixed(2)} hrs logged
                         </Typography>
                       </Stack>
                       {/* Description */}
