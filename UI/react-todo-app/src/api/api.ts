@@ -1,7 +1,7 @@
 
 import { getAuth } from '../auth/auth'
 
-const BASE = import.meta.env.VITE_API_BASE_URL || 'https://todotaskapp.azurewebsites.net/' // 'http://localhost:5169'
+const BASE = import.meta.env.VITE_API_BASE_URL || 'https://todotaskapp.azurewebsites.net/' // 'https://todotaskapp.azurewebsites.net/' // 'http://localhost:5169'
 
 
 
@@ -109,3 +109,75 @@ export const api = {
   logHours: (id: string, hours: number) =>
     request(`/api/tasks/${id}/logs`, { method: 'POST', body: JSON.stringify({ hours }) }),
 }
+
+export async function exportMyTasksExcel(params: {
+  fromDate?: string; toDate?: string; status?: string;
+}) {
+  const qs = new URLSearchParams();
+  if (params.fromDate) qs.set('fromDate', params.fromDate);
+  if (params.toDate)   qs.set('toDate', params.toDate);
+  if (params.status)   qs.set('status', params.status);
+
+  const url = `${BASE}/api/tasks/export?${qs.toString()}`;
+  const token = (localStorage.getItem('todo_token') ?? '');
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
+  return await res.blob(); // Excel blob
+}
+
+export async function exportAllTasksExcel(params: {
+  fromDate?: string; toDate?: string; status?: string;
+}) {
+  const qs = new URLSearchParams();
+  if (params.fromDate) qs.set('fromDate', params.fromDate);
+  if (params.toDate)   qs.set('toDate', params.toDate);
+  if (params.status)   qs.set('status', params.status);
+
+  const url = `${BASE}/api/tasks/export/all?${qs.toString()}`;
+  const token = (localStorage.getItem('todo_token') ?? '');
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
+  return await res.blob();
+}
+
+export function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+
+export async function importTasksExcel(file: File) {
+  const form = new FormData();
+  form.append('file', file);
+
+  const token = localStorage.getItem('todo_token') ?? '';
+  const res = await fetch(`${BASE}/api/tasks/import`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined as any,
+    body: form
+  });
+  // console.log('Import response:', res.text());
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    console.log('Import error text:', text);
+    throw new Error(text || res.statusText);
+  }
+  // if((await res.text()).search('errors')){
+  //   console.log('Import encountered errors');
+  // }
+  // console.log('Import successful', res.json());
+  return res.json(); // ImportResult { totalRows, imported, skipped, errors[] }
+}
+
+

@@ -8,6 +8,8 @@
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="12.0.1" />
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.4.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.11" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.11" />
@@ -20,6 +22,8 @@
 
   <ItemGroup>
     <Folder Include="Auth\" />
+    <Folder Include="Export\" />
+    <Folder Include="Import\" />
     <Folder Include="Migrations\" />
     <Folder Include="Persistence\" />
     <Folder Include="Repositories\" />

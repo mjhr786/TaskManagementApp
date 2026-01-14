@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { api, GetTasksParams } from "../api/api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api, GetTasksParams, exportMyTasksExcel, exportAllTasksExcel, triggerDownload, importTasksExcel } from "../api/api";
 import {
   Alert,
   Box,
@@ -20,6 +20,11 @@ import {
   Tooltip,
   useMediaQuery,
   useTheme,
+  ButtonGroup,
+  FormControl,
+  InputLabel,
+  OutlinedInput,
+  TextField,
 } from "@mui/material";
 import TaskForm from "../components/TaskForm";
 import TimeLogForm from "../components/TimeLogForm";
@@ -30,6 +35,13 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import ChecklistIcon from "@mui/icons-material/Checklist";
 import AssignmentIcon from "@mui/icons-material/Assignment";
+import { hasRole } from '../auth/auth'
+import { useSnackbar } from 'notistack';
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import GetAppIcon from "@mui/icons-material/GetApp";
+import AddIcon from "@mui/icons-material/Add";
+import TuneIcon from "@mui/icons-material/Tune";
+
 
 export type TaskVm = {
   id: string;
@@ -62,9 +74,9 @@ export default function TasksPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [logError, setLogError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
   const theme = useTheme();
   const isXs = useMediaQuery(theme.breakpoints.down("sm"));
+  const { enqueueSnackbar } = useSnackbar();
 
   // format helper
   const fmt = (iso: string) => new Date(iso).toLocaleDateString();
@@ -194,7 +206,7 @@ export default function TasksPage() {
   const totalToday = useMemo(() => {
     const todayStr = new Date().toISOString().slice(0, 10);
     return paged.items
-      .filter((t) => t.date === todayStr)
+      .filter((t) => t.startDate === todayStr)
       .reduce((sum, t) => sum + (t.totalHours || 0), 0);
   }, [paged.items]);
 
@@ -210,68 +222,218 @@ export default function TasksPage() {
     if (s == "3") return { color: "warning", label: "Archived" };
     return { color: "default", label: "New" };
   };
+  
+  const handleExportMyTasks = async () => {
+    try {
+      const blob = await exportMyTasksExcel({
+        fromDate: '',
+        toDate: '',
+        status
+      });
+      const name = `MyTasks_${new Date().toISOString().slice(0,10)}.xlsx`;
+      triggerDownload(blob, name);
+    } catch (e: any) {
+      setError(e.message || 'Export failed');
+    }
+  };
+  
+  const handleExportAll = async () => {
+    try {
+      const blob = await exportAllTasksExcel({
+        fromDate: '',
+        toDate: '',
+        status
+      });
+      const name = `AllTasks_${new Date().toISOString().slice(0,10)}.xlsx`;
+      triggerDownload(blob, name);
+    } catch (e: any) {
+      setError(e.message || 'Export failed');
+    }
+  };
+
+  
+const fileInputRef = useRef<HTMLInputElement>(null);
+
+const handleImportClick = () => fileInputRef.current?.click();
+
+const handleImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const result = await importTasksExcel(file);
+    if (result.errors.length > 0) {
+      enqueueSnackbar(`Import completed with errors: ${result.imported} imported, ${result.skipped} skipped. First error: ${result.errors[0].message}`, { variant: 'error' });
+    } else {
+      enqueueSnackbar(`Import successful: ${result.imported} imported, ${result.skipped} skipped`, { variant: 'success' });
+    }
+    await load(); // reload tasks
+  } catch (err: any) {
+    enqueueSnackbar(err.message || 'Import failed', { variant: 'error' });
+  } finally {
+    e.target.value = ''; // clear input
+  }
+};
+
 
   return (
     <Box className="flex-col gap-16">
       {/* Filters + toolbar */}
       <Card className="card section">
         <CardContent>
-          <Stack
-            direction="row"
-            spacing={2}
-            alignItems="center"
-            className="filter-row"
-          >
-            <Typography variant="h6">
-              <ChecklistIcon fontSize="small" style={{ marginRight: 6 }} /> My
-              Tasks
-            </Typography>
-            <Button variant="contained" onClick={() => setShowForm(true)}>
-              Add Task
-            </Button>
-            <Box sx={{ flexGrow: 1 }} />
-            <div className="filter-row">
-              <label style={{ color: "#334155" }}>Date</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                style={{
-                  padding: "6px 8px",
-                  borderRadius: 8,
-                  border: "1px solid #cbd5e1",
-                }}
-              />
-              <Select
-                size="small"
-                value={status}
-                displayEmpty
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <MenuItem value="">
-                  <em>All</em>
-                </MenuItem>
-                <MenuItem value="New">New</MenuItem>
-                <MenuItem value="InProgress">InProgress</MenuItem>
-                <MenuItem value="Completed">Completed</MenuItem>
-                <MenuItem value="Archived">Archived</MenuItem>
-              </Select>
-              <ToggleButtonGroup
-                size="small"
-                exclusive
-                value={sortOrder}
-                onChange={handleSortChange}
-              >
-                <ToggleButton value="asc">Sort: Date ↑</ToggleButton>
-                <ToggleButton value="desc">Sort: Date ↓</ToggleButton>
-              </ToggleButtonGroup>
-            </div>
-          </Stack>
-          {error && (
-            <Alert sx={{ mt: 2 }} severity="error">
-              {error}
-            </Alert>
-          )}
+          
+
+{/* HEADER — tidy two-row layout */}
+<Stack spacing={1.5}>
+  {/* ROW 1: Title + Primary Actions */}
+  <Stack
+    direction="row"
+    alignItems="center"
+    justifyContent="space-between"
+    flexWrap="wrap"
+    rowGap={1}
+    columnGap={2}
+  >
+    {/* Left: Title */}
+    <Stack direction="row" alignItems="center" spacing={1.25}>
+      <ChecklistIcon fontSize="small" sx={{ color: "text.primary" }} />
+      <Typography variant="h6" sx={{ fontWeight: 600, letterSpacing: 0.2 }}>
+        My Tasks
+      </Typography>
+    </Stack>
+
+    {/* Right: Primary actions */}
+    <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" rowGap={1}>
+      <Button
+        variant="contained"
+        size="small"
+        startIcon={<AddIcon />}
+        onClick={() => setShowForm(true)}
+      >
+        Add Task
+      </Button>
+
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<GetAppIcon />}
+        onClick={handleExportMyTasks}
+      >
+        Export to Excel
+      </Button>
+
+      {hasRole("Admin") && (
+        <Button
+          variant="outlined"
+          color="secondary"
+          size="small"
+          startIcon={<GetAppIcon />}
+          onClick={handleExportAll}
+        >
+          Export All (Admin)
+        </Button>
+      )}
+
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<UploadFileIcon />}
+        onClick={handleImportClick}
+      >
+        Import (.xlsx)
+      </Button>
+
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".xlsx"
+        style={{ display: "none" }}
+        onChange={handleImportChange}
+      />
+    </Stack>
+  </Stack>
+
+  {/* Optional subtle divider */}
+  <Divider sx={{ my: 0.5 }} />
+
+  
+{/* ROW 2: Filters — aligned to the right */}
+<Stack
+  direction="row"
+  alignItems="center"
+  spacing={1.5}
+  flexWrap="wrap"
+  rowGap={1}
+  sx={{
+    width: '100%',
+  }}
+  justifyContent="flex-end"
+>
+  {/* Optional spacer keeps Filters label at right while allowing wrap on small screens */}
+  <Box sx={{ flexGrow: 1 }} />
+
+  <Typography
+    variant="body2"
+    sx={{ color: 'text.secondary', fontWeight: 600, mr: 1 }}
+  >
+    Filters
+  </Typography>
+
+  {/* Date field */}
+  <FormControl size="small" sx={{ minWidth: 180 }}>
+    <TextField
+      size="small"
+      label="Date"
+      type="date"
+      value={date}
+      onChange={(e) => setDate(e.target.value)}
+      InputLabelProps={{ shrink: true }}
+    />
+  </FormControl>
+
+  {/* Status field */}
+  <FormControl size="small" sx={{ minWidth: 160 }}>
+    <InputLabel id="tasks-status-label">Status</InputLabel>
+    <Select
+      labelId="tasks-status-label"
+      value={status}
+      label="Status"
+      onChange={(e) => setStatus(e.target.value)}
+    >
+      <MenuItem value="">
+        <em>All</em>
+      </MenuItem>
+      <MenuItem value="New">New</MenuItem>
+      <MenuItem value="InProgress">In Progress</MenuItem>
+      <MenuItem value="Completed">Completed</MenuItem>
+      <MenuItem value="Archived">Archived</MenuItem>
+    </Select>
+  </FormControl>
+
+  {/* Sort segmented control */}
+  <ToggleButtonGroup
+    size="small"
+    exclusive
+    value={sortOrder}
+    onChange={(_, val) => val && setSortOrder(val)}
+    sx={{
+      '& .MuiToggleButton-root': { textTransform: 'none', px: 1.5 },
+    }}
+  >
+    <ToggleButton value="asc">Sort: Date ↑</ToggleButton>
+    <ToggleButton value="desc">Sort: Date ↓</ToggleButton>
+  </ToggleButtonGroup>
+</Stack>
+
+
+  {/* Error below header */}
+  {error && (
+    <Alert sx={{ mt: 1 }} severity="error">
+      {error}
+    </Alert>
+  )}
+</Stack>
+
         </CardContent>
       </Card>
 

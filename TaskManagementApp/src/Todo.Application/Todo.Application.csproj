@@ -13,9 +13,9 @@
 
   <ItemGroup>
     <Folder Include="Abstractions\" />
+    <Folder Include="Import\" />
     <Folder Include="Mapping\" />
     <Folder Include="Common\" />
-    <Folder Include="Tasks\" />
     <Folder Include="Tasks\Dtos\" />
     <Folder Include="Tasks\Validators\" />
   </ItemGroup>

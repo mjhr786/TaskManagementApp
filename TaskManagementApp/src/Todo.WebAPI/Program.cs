@@ -15,6 +15,10 @@ using FluentValidation.AspNetCore;
 using AutoMapper;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Todo.Application.Tasks.Export;
+using Todo.Infrastructure.Export;
+using Todo.Application.Tasks.Import;
+using Todo.Infrastructure.Import;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -76,6 +80,8 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // Application services
 builder.Services.AddScoped<TaskService>();
+builder.Services.AddScoped<ITaskExportService, TaskExcelExportService>();
+builder.Services.AddScoped<ITaskImportService, TaskExcelImportService>();
 
 builder.Services.AddControllers();
 
