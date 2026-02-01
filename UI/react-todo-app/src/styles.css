@@ -2,49 +2,56 @@ body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetic
 
 
 /* Page containers & utilities */
+.grade-bg {
+  background: linear-gradient(135deg, #f0f4ff 0%, #ffffff 100%);
+  min-height: 100vh;
+}
+
 .section {
-  margin-bottom: 16px;
+  margin-bottom: 24px;
+}
+
+/* Glassmorphism Card Style */
+.glass-card {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 
+              0 10px 15px -3px rgba(0, 0, 0, 0.05) !important;
+  border-radius: 16px !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -3px rgba(0, 0, 0, 0.08) !important;
 }
 
 .task-band {
-  background: linear-gradient(
-    180deg,
-    rgba(37, 99, 235, 0.06) 0%,
-    rgba(37, 99, 235, 0.02) 100%
-  );
-  border-radius: 14px;
+  background: white;
+  border-radius: 12px;
   padding: 16px;
+  border: 1px solid #e2e8f0;
 }
 
 .task-header {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 12px;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-}
-
-.task-meta {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  color: #334155; /* slate-700 */
-}
-
-.task-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.task-body {
-  margin-top: 10px;
-  color: #475569; /* slate-600 */
-}
-
-.filter-row {
-  display: flex;
-  gap: 12px;
   flex-wrap: wrap;
-  align-items: center;
+  gap: 12px;
+}
+
+/* Mobile optimizations */
+@media (max-width: 600px) {
+  .main-container {
+    padding: 16px;
+  }
+  
+  .task-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .soft-divider {
@@ -56,5 +63,14 @@ body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetic
 .empty-state {
   text-align: center;
   color: #64748b; /* slate-500 */
-  padding: 28px 0;
+  padding: 40px 0;
+  background: rgba(248, 250, 252, 0.5);
+  border-radius: 12px;
+  border: 2px dashed #e2e8f0;
+}
+
+/* Typography Enhancements */
+h6 {
+  font-family: 'Inter', sans-serif;
+  letter-spacing: -0.025em;
 }

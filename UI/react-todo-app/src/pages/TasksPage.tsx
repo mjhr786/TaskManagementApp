@@ -97,6 +97,15 @@ export default function TasksPage() {
   const [editTask, setEditTask] = useState<TaskVm | null>(null);
   const [logTask, setLogTask] = useState<TaskVm | null>(null);
 
+  const [todayTotal, setTodayTotal] = useState(0);
+
+  const loadTodayStats = async () => {
+    try {
+      const res = await api.getTodayTotalHours();
+      setTodayTotal(res?.totalHours || 0);
+    } catch { /* ignore */ }
+  };
+
   const load = async () => {
     const params: GetTasksParams = {
       page,
@@ -123,6 +132,7 @@ export default function TasksPage() {
   }, [status, date, sortOrder]);
   useEffect(() => {
     load();
+    loadTodayStats();
   }, [page, status, date, sortOrder]);
 
   const handleCreate = async (payload: {
@@ -132,7 +142,7 @@ export default function TasksPage() {
     endDate: string;
   }) => {
     try {
-      if(payload.startDate > payload.endDate) {
+      if (payload.startDate > payload.endDate) {
         setFormError("Start Date cannot be after End Date.");
         return;
       }
@@ -152,7 +162,7 @@ export default function TasksPage() {
   }) => {
     if (!editTask) return;
     try {
-      if(payload.startDate > payload.endDate) {
+      if (payload.startDate > payload.endDate) {
         setFormError("Start Date cannot be after End Date.");
         return;
       }
@@ -169,6 +179,7 @@ export default function TasksPage() {
     try {
       await api.deleteTask(id);
       await load();
+      await loadTodayStats();
     } catch (e: any) {
       setError(e.message);
     }
@@ -187,6 +198,7 @@ export default function TasksPage() {
       await api.logHours(logTask.id, hours);
       setLogTask(null);
       await load();
+      await loadTodayStats();
     } catch (e: any) {
       setLogError(e.message);
     }
@@ -203,12 +215,6 @@ export default function TasksPage() {
     }
   };
 
-  const totalToday = useMemo(() => {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    return paged.items
-      .filter((t) => t.startDate === todayStr)
-      .reduce((sum, t) => sum + (t.totalHours || 0), 0);
-  }, [paged.items]);
 
   const handleSortChange = (_: any, val: "asc" | "desc" | null) => {
     if (val) setSortOrder(val);
@@ -222,7 +228,7 @@ export default function TasksPage() {
     if (s == "3") return { color: "warning", label: "Archived" };
     return { color: "default", label: "New" };
   };
-  
+
   const handleExportMyTasks = async () => {
     try {
       const blob = await exportMyTasksExcel({
@@ -230,13 +236,13 @@ export default function TasksPage() {
         toDate: '',
         status
       });
-      const name = `MyTasks_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const name = `MyTasks_${new Date().toISOString().slice(0, 10)}.xlsx`;
       triggerDownload(blob, name);
     } catch (e: any) {
       setError(e.message || 'Export failed');
     }
   };
-  
+
   const handleExportAll = async () => {
     try {
       const blob = await exportAllTasksExcel({
@@ -244,375 +250,417 @@ export default function TasksPage() {
         toDate: '',
         status
       });
-      const name = `AllTasks_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const name = `AllTasks_${new Date().toISOString().slice(0, 10)}.xlsx`;
       triggerDownload(blob, name);
     } catch (e: any) {
       setError(e.message || 'Export failed');
     }
   };
 
-  
-const fileInputRef = useRef<HTMLInputElement>(null);
 
-const handleImportClick = () => fileInputRef.current?.click();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-const handleImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  try {
-    const result = await importTasksExcel(file);
-    if (result.errors.length > 0) {
-      enqueueSnackbar(`Import completed with errors: ${result.imported} imported, ${result.skipped} skipped. First error: ${result.errors[0].message}`, { variant: 'error' });
-    } else {
-      enqueueSnackbar(`Import successful: ${result.imported} imported, ${result.skipped} skipped`, { variant: 'success' });
+  const handleImportClick = () => fileInputRef.current?.click();
+
+  const handleImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const result = await importTasksExcel(file);
+      if (result.errors.length > 0) {
+        enqueueSnackbar(`Import completed with errors: ${result.imported} imported, ${result.skipped} skipped. First error: ${result.errors[0].message}`, { variant: 'error' });
+      } else {
+        enqueueSnackbar(`Import successful: ${result.imported} imported, ${result.skipped} skipped`, { variant: 'success' });
+      }
+      await load(); // reload tasks
+    } catch (err: any) {
+      enqueueSnackbar(err.message || 'Import failed', { variant: 'error' });
+    } finally {
+      e.target.value = ''; // clear input
     }
-    await load(); // reload tasks
-  } catch (err: any) {
-    enqueueSnackbar(err.message || 'Import failed', { variant: 'error' });
-  } finally {
-    e.target.value = ''; // clear input
-  }
-};
+  };
 
 
   return (
     <Box className="flex-col gap-16">
       {/* Filters + toolbar */}
-      <Card className="card section">
+      <Card className="glass-card section" elevation={0}>
         <CardContent>
-          
+          {/* HEADER — tidy responsive layout */}
+          <Stack spacing={2}>
+            {/* ROW 1: Title + Primary Actions */}
+            <Stack
+              direction={{ xs: "column", md: "row" }}
+              alignItems={{ xs: "stretch", md: "center" }}
+              justifyContent="space-between"
+              spacing={2}
+            >
+              {/* Left: Title */}
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <Box
+                  sx={{
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    borderRadius: '8px',
+                    p: 0.8,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)'
+                  }}
+                >
+                  <ChecklistIcon sx={{ color: "white", fontSize: 20 }} />
+                </Box>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b' }}>
+                  My Tasks
+                </Typography>
+              </Stack>
 
-{/* HEADER — tidy two-row layout */}
-<Stack spacing={1.5}>
-  {/* ROW 1: Title + Primary Actions */}
-  <Stack
-    direction="row"
-    alignItems="center"
-    justifyContent="space-between"
-    flexWrap="wrap"
-    rowGap={1}
-    columnGap={2}
-  >
-    {/* Left: Title */}
-    <Stack direction="row" alignItems="center" spacing={1.25}>
-      <ChecklistIcon fontSize="small" sx={{ color: "text.primary" }} />
-      <Typography variant="h6" sx={{ fontWeight: 600, letterSpacing: 0.2 }}>
-        My Tasks
-      </Typography>
-    </Stack>
+              {/* Right: Primary actions */}
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1}
+                flexWrap="wrap"
+                sx={{ '& > button': { flex: { xs: 1, sm: 'none' } } }}
+              >
+                <Button
+                  variant="contained"
+                  size={isXs ? "medium" : "small"}
+                  startIcon={<AddIcon />}
+                  onClick={() => setShowForm(true)}
+                  sx={{
+                    borderRadius: 2,
+                    fontWeight: 600,
+                    boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.3)',
+                    textTransform: 'none'
+                  }}
+                >
+                  Add Task
+                </Button>
 
-    {/* Right: Primary actions */}
-    <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" rowGap={1}>
-      <Button
-        variant="contained"
-        size="small"
-        startIcon={<AddIcon />}
-        onClick={() => setShowForm(true)}
-      >
-        Add Task
-      </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<GetAppIcon />}
+                  onClick={handleExportMyTasks}
+                  sx={{ borderRadius: 2, textTransform: 'none' }}
+                >
+                  Export
+                </Button>
 
-      <Button
-        variant="outlined"
-        size="small"
-        startIcon={<GetAppIcon />}
-        onClick={handleExportMyTasks}
-      >
-        Export to Excel
-      </Button>
+                {hasRole("Admin") && (
+                  <Button
+                    variant="outlined"
+                    color="secondary"
+                    size="small"
+                    startIcon={<GetAppIcon />}
+                    onClick={handleExportAll}
+                    sx={{ borderRadius: 2, textTransform: 'none' }}
+                  >
+                    Export All (Admin)
+                  </Button>
+                )}
 
-      {hasRole("Admin") && (
-        <Button
-          variant="outlined"
-          color="secondary"
-          size="small"
-          startIcon={<GetAppIcon />}
-          onClick={handleExportAll}
-        >
-          Export All (Admin)
-        </Button>
-      )}
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<UploadFileIcon />}
+                  onClick={handleImportClick}
+                  sx={{ borderRadius: 2, textTransform: 'none' }}
+                >
+                  Import
+                </Button>
 
-      <Button
-        variant="outlined"
-        size="small"
-        startIcon={<UploadFileIcon />}
-        onClick={handleImportClick}
-      >
-        Import (.xlsx)
-      </Button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".xlsx"
+                  style={{ display: "none" }}
+                  onChange={handleImportChange}
+                />
+              </Stack>
+            </Stack>
 
-      {/* Hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept=".xlsx"
-        style={{ display: "none" }}
-        onChange={handleImportChange}
-      />
-    </Stack>
-  </Stack>
+            <Divider sx={{ opacity: 0.6 }} />
 
-  {/* Optional subtle divider */}
-  <Divider sx={{ my: 0.5 }} />
+            {/* ROW 2: Filters */}
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              alignItems="center"
+              justifyContent="space-between"
+              spacing={2}
+            >
+              <Typography
+                variant="body2"
+                sx={{
+                  color: 'text.secondary',
+                  fontWeight: 600,
+                  display: { xs: 'none', sm: 'block' }
+                }}
+              >
+                Filters & Sorting
+              </Typography>
 
-  
-{/* ROW 2: Filters — aligned to the right */}
-<Stack
-  direction="row"
-  alignItems="center"
-  spacing={1.5}
-  flexWrap="wrap"
-  rowGap={1}
-  sx={{
-    width: '100%',
-  }}
-  justifyContent="flex-end"
->
-  {/* Optional spacer keeps Filters label at right while allowing wrap on small screens */}
-  <Box sx={{ flexGrow: 1 }} />
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                sx={{ width: { xs: '100%', sm: 'auto' } }}
+              >
+                <TextField
+                  size="small"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  sx={{ minWidth: { xs: '100%', sm: 160 }, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                />
 
-  <Typography
-    variant="body2"
-    sx={{ color: 'text.secondary', fontWeight: 600, mr: 1 }}
-  >
-    Filters
-  </Typography>
+                <Select
+                  size="small"
+                  value={status}
+                  displayEmpty
+                  onChange={(e) => setStatus(e.target.value)}
+                  sx={{ minWidth: { xs: '100%', sm: 140 }, borderRadius: 2 }}
+                >
+                  <MenuItem value="">All Statuses</MenuItem>
+                  <MenuItem value="New">New</MenuItem>
+                  <MenuItem value="InProgress">In Progress</MenuItem>
+                  <MenuItem value="Completed">Completed</MenuItem>
+                  <MenuItem value="Archived">Archived</MenuItem>
+                </Select>
 
-  {/* Date field */}
-  <FormControl size="small" sx={{ minWidth: 180 }}>
-    <TextField
-      size="small"
-      label="Date"
-      type="date"
-      value={date}
-      onChange={(e) => setDate(e.target.value)}
-      InputLabelProps={{ shrink: true }}
-    />
-  </FormControl>
+                <ToggleButtonGroup
+                  size="small"
+                  exclusive
+                  value={sortOrder}
+                  onChange={(_, val) => val && setSortOrder(val)}
+                  sx={{
+                    width: { xs: '100%', sm: 'auto' },
+                    '& .MuiToggleButton-root': { flex: 1, textTransform: 'none', borderRadius: 2 }
+                  }}
+                >
+                  <ToggleButton value="asc">Date ↑</ToggleButton>
+                  <ToggleButton value="desc">Date ↓</ToggleButton>
+                </ToggleButtonGroup>
+              </Stack>
+            </Stack>
 
-  {/* Status field */}
-  <FormControl size="small" sx={{ minWidth: 160 }}>
-    <InputLabel id="tasks-status-label">Status</InputLabel>
-    <Select
-      labelId="tasks-status-label"
-      value={status}
-      label="Status"
-      onChange={(e) => setStatus(e.target.value)}
-    >
-      <MenuItem value="">
-        <em>All</em>
-      </MenuItem>
-      <MenuItem value="New">New</MenuItem>
-      <MenuItem value="InProgress">In Progress</MenuItem>
-      <MenuItem value="Completed">Completed</MenuItem>
-      <MenuItem value="Archived">Archived</MenuItem>
-    </Select>
-  </FormControl>
-
-  {/* Sort segmented control */}
-  <ToggleButtonGroup
-    size="small"
-    exclusive
-    value={sortOrder}
-    onChange={(_, val) => val && setSortOrder(val)}
-    sx={{
-      '& .MuiToggleButton-root': { textTransform: 'none', px: 1.5 },
-    }}
-  >
-    <ToggleButton value="asc">Sort: Date ↑</ToggleButton>
-    <ToggleButton value="desc">Sort: Date ↓</ToggleButton>
-  </ToggleButtonGroup>
-</Stack>
-
-
-  {/* Error below header */}
-  {error && (
-    <Alert sx={{ mt: 1 }} severity="error">
-      {error}
-    </Alert>
-  )}
-</Stack>
-
+            {/* Error Message */}
+            {error && (
+              <Alert sx={{ borderRadius: 2 }} severity="error" onClose={() => setError(null)}>
+                {error}
+              </Alert>
+            )}
+          </Stack>
         </CardContent>
       </Card>
 
       {/* Tasks list */}
-      <Card className="card section">
-        <CardContent>
-          {loading ? (
-            <Stack spacing={2}>
-              {[...Array(3)].map((_, i) => (
-                <Box key={i} className="task-band">
-                  <div className="task-header">
-                    <Skeleton variant="text" width={220} height={28} />
-                    <Skeleton variant="rectangular" width={120} height={28} />
-                    <Skeleton variant="rectangular" width={220} height={28} />
-                  </div>
-                  <div className="task-body">
-                    <Skeleton variant="text" width="80%" />
-                  </div>
-                </Box>
-              ))}
-            </Stack>
-          ) : (
-            <>
-              <Stack spacing={2}>
-                {paged.items.map((t) => {
-                  const chip = statusChip(t.status);
-                  return (
-                    <Card
-                      key={t.id}
-                      variant="outlined"
-                      sx={{ p: 2, borderRadius: 2, boxShadow: 1 }}
-                    >
+      <Stack spacing={2}>
+        {loading ? (
+          [...Array(3)].map((_, i) => (
+            <Box key={i} className="task-band">
+              <div className="task-header">
+                <Skeleton variant="text" width={220} height={28} />
+                <Skeleton variant="rectangular" width={120} height={28} />
+              </div>
+              <div className="task-body">
+                <Skeleton variant="text" width="80%" />
+              </div>
+            </Box>
+          ))
+        ) : (
+          <>
+            {paged.items.map((t) => {
+              const chip = statusChip(t.status);
+              return (
+                <Card
+                  key={t.id}
+                  className="glass-card"
+                  elevation={0}
+                  sx={{ p: 2, position: 'relative', overflow: 'visible' }}
+                >
+                  <Stack
+                    direction={{ xs: "column", md: "row" }}
+                    alignItems={{ xs: "flex-start", md: "center" }}
+                    spacing={2}
+                    justifyContent="space-between"
+                  >
+                    {/* Left: Title & Status */}
+                    <Stack spacing={1} sx={{ flex: 1, width: '100%' }}>
+                      <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            bgcolor: chip.color === 'default' ? 'grey.400' : `${chip.color}.main`
+                          }}
+                        />
+                        <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem', color: '#334155' }}>
+                          {t.title}
+                        </Typography>
+                        <Chip
+                          label={chip.label}
+                          color={chip.color as any}
+                          size="small"
+                          variant="outlined"
+                          sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }}
+                        />
+                      </Stack>
+
+                      {/* Dates & Hours Mobile Stack */}
                       <Stack
                         direction="row"
-                        alignItems="center"
-                        spacing={2}
-                        justifyContent="space-between"
+                        flexWrap="wrap"
+                        gap={2}
+                        sx={{ color: 'text.secondary', fontSize: '0.875rem' }}
                       >
-                        {/* Left: Title & Status */}
-                        <Stack direction="row" alignItems="center" spacing={2}>
-                          <AssignmentIcon
-                            fontSize="small"
-                            sx={{ color: "primary.main" }}
-                          />
-                          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                            {t.title}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <CalendarMonthIcon fontSize="inherit" sx={{ opacity: 0.7 }} />
+                          <span>{fmt(t.startDate)} - {fmt(t.endDate)}</span>
+                        </Box>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <AccessTimeIcon fontSize="inherit" sx={{ opacity: 0.7 }} />
+                          <Typography component="span" fontWeight={500} color="primary.main">
+                            {t.totalHours?.toFixed(1) || '0.0'}h
                           </Typography>
-                          <Chip
-                            label={chip.label}
-                            color={chip.color as any}
-                            size="small"
-                          />
-                        </Stack>
-                        {/* Right: Actions */}
-                        <Stack direction="row" alignItems="center" spacing={1}>
-                          <Tooltip title="Log Hours">
-                            <IconButton
-                              color="primary"
-                              onClick={() => setLogTask(t)}
-                            >
-                              <AccessTimeIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Edit">
-                            <IconButton onClick={() => setEditTask(t)}>
-                              <EditIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Mark Completed">
-                            <IconButton
-                              color="success"
-                              onClick={() => handleComplete(t.id)}
-                            >
-                              <DoneIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete">
-                            <IconButton
-                              color="error"
-                              onClick={() => handleDelete(t.id)}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Select
-                            size="small"
-                            value={t.status}
-                            onChange={(e) =>
-                              updateStatus(
-                                t.id,
-                                e.target.value as
-                                  | "New"
-                                  | "InProgress"
-                                  | "Completed"
-                                  | "Archived"
-                              )
-                            }
-                            sx={{ minWidth: 110 }}
-                          >
-                            <MenuItem value="0">New</MenuItem>
-                            <MenuItem value="1">In Progress</MenuItem>
-                            <MenuItem value="2">Completed</MenuItem>
-                            <MenuItem value="3">Archived</MenuItem>
-                          </Select>
-                        </Stack>
+                          <span>logged</span>
+                        </Box>
                       </Stack>
-                      <Divider sx={{ my: 1 }} />
-                      {/* Second row: Dates & Hours */}
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        spacing={3}
-                        sx={{ mb: t.description ? 1 : 0 }}
-                      >
-                        <Typography variant="body2" color="text.secondary">
-                          <CalendarMonthIcon
-                            fontSize="small"
-                            sx={{ mr: 0.5, verticalAlign: "middle" }}
-                          />
-                          Created-{fmt(t.createdDate.slice(0, 10))}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          <CalendarMonthIcon
-                            fontSize="small"
-                            sx={{ mr: 0.5, verticalAlign: "middle" }}
-                          />
-                          from-{fmt(t.startDate.slice(0, 10))} to-{fmt(t.endDate.slice(0, 10) )}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          <AccessTimeIcon
-                            fontSize="small"
-                            sx={{ mr: 0.5, verticalAlign: "middle" }}
-                          />
-                          {t.totalHours?.toFixed(2)} hrs logged
-                        </Typography>
-                      </Stack>
+
                       {/* Description */}
                       {t.description && (
                         <Typography
                           variant="body2"
-                          sx={{ color: "text.secondary", mt: 0.5 }}
+                          sx={{ color: "text.secondary", mt: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
                         >
                           {t.description}
                         </Typography>
                       )}
-                    </Card>
-                  );
-                })}
-              </Stack>
+                    </Stack>
 
-              {paged.items.length === 0 && (
-                <div className="empty-state">
-                  <Typography variant="h6">No tasks found</Typography>
-                  <Typography variant="body2">
-                    Try changing filters or adding a new task.
-                  </Typography>
-                </div>
-              )}
+                    {/* Right: Actions */}
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                      sx={{
+                        width: { xs: '100%', md: 'auto' },
+                        justifyContent: { xs: 'space-between', md: 'flex-end' },
+                        pt: { xs: 2, md: 0 },
+                        borderTop: { xs: '1px solid #f1f5f9', md: 'none' }
+                      }}
+                    >
+                      <ToggleButtonGroup
+                        size="small"
+                        exclusive
+                        value={t.status}
+                        onChange={(_, val) => val && updateStatus(t.id, val)}
+                        sx={{ mr: 'auto' }}
+                      >
+                        {/* Just show status switcher as icon buttons on mobile if space is tight, or keep standard */}
+                      </ToggleButtonGroup>
 
-              {/* Pagination */}
-              <Stack direction="row" justifyContent="center" sx={{ mt: 2 }}>
-                <Pagination
-                  count={paged.totalPages}
-                  page={page}
-                  onChange={(_, p) => setPage(p)}
-                  color="primary"
-                  size="small"
-                />
-              </Stack>
-            </>
-          )}
-        </CardContent>
-      </Card>
+                      <Select
+                        size="small"
+                        value={t.status}
+                        onChange={(e) =>
+                          updateStatus(
+                            t.id,
+                            e.target.value as any
+                          )
+                        }
+                        sx={{
+                          minWidth: 100,
+                          height: 32,
+                          fontSize: '0.875rem',
+                          mr: 1,
+                          bgcolor: 'background.paper'
+                        }}
+                      >
+                        <MenuItem value="0">New</MenuItem>
+                        <MenuItem value="1">In Progress</MenuItem>
+                        <MenuItem value="2">Completed</MenuItem>
+                        <MenuItem value="3">Archived</MenuItem>
+                      </Select>
+
+                      <Stack direction="row" spacing={0.5}>
+                        <Tooltip title="Log Hours">
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => setLogTask(t)}
+                            sx={{ border: '1px solid', borderColor: 'divider' }}
+                          >
+                            <AccessTimeIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            onClick={() => setEditTask(t)}
+                            sx={{ border: '1px solid', borderColor: 'divider' }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Mark Completed">
+                          <IconButton
+                            size="small"
+                            color="success"
+                            onClick={() => handleComplete(t.id)}
+                            sx={{ border: '1px solid', borderColor: 'divider' }}
+                          >
+                            <DoneIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDelete(t.id)}
+                            sx={{ border: '1px solid', borderColor: 'divider' }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </Stack>
+                  </Stack>
+                </Card>
+              );
+            })}
+          </>
+        )}
+
+        {paged.items.length === 0 && !loading && (
+          <div className="empty-state">
+            <Typography variant="h6">No tasks found</Typography>
+            <Typography variant="body2">
+              Try changing filters or adding a new task.
+            </Typography>
+          </div>
+        )}
+
+        {/* Pagination */}
+        <Stack direction="row" justifyContent="center" sx={{ mt: 2 }}>
+          <Pagination
+            count={paged.totalPages}
+            page={page}
+            onChange={(_, p) => setPage(p)}
+            color="primary"
+            size="medium"
+            shape="rounded"
+          />
+        </Stack>
+      </Stack>
 
       {/* Summary footer */}
-      <Card className="card section">
+      <Card className="glass-card section" elevation={0}>
         <CardContent>
           <Typography variant="body2" sx={{ color: "#334155" }}>
-            Today’s total hours: <strong>{totalToday.toFixed(2)}</strong>
+            Today’s total hours: <strong>{todayTotal.toFixed(2)}</strong>
           </Typography>
         </CardContent>
       </Card>
@@ -620,22 +668,22 @@ const handleImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       {/* Modals */}
       <TaskForm
         open={showForm}
-        onClose={() => {setShowForm(false); setFormError(null); }}
+        onClose={() => { setShowForm(false); setFormError(null); }}
         onSave={handleCreate}
         error={formError}
       />
 
       <TaskForm
         open={!!editTask}
-        onClose={() => {setEditTask(null); setFormError(null); }}
+        onClose={() => { setEditTask(null); setFormError(null); }}
         initial={
           editTask
             ? {
-                title: editTask.title,
-                description: editTask.description,
-                startDate: editTask.startDate,
-                endDate: editTask.endDate,
-              }
+              title: editTask.title,
+              description: editTask.description,
+              startDate: editTask.startDate,
+              endDate: editTask.endDate,
+            }
             : undefined
         }
         onSave={handleUpdate}

@@ -93,4 +93,8 @@ public class TaskService
         await _tasks.UpdateAsync(task, ct);
         await _uow.SaveChangesAsync(ct);
     }
+    public async Task<decimal> GetTodayTotalHoursAsync(Guid userId, CancellationToken ct = default)
+    {
+        return await _timeLogs.GetTotalHoursTodayAsync(userId, ct);
+    }
 }

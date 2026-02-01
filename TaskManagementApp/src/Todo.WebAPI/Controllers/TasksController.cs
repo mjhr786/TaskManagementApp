@@ -96,6 +96,13 @@ public class TasksController : ControllerBase
         return Ok(dto);
     }
 
+    [HttpGet("stats/today")]
+    public async Task<IActionResult> GetTodayStats(CancellationToken ct)
+    {
+        var hours = await _svc.GetTodayTotalHoursAsync(CurrentUserId, ct);
+        return Ok(new { totalHours = hours });
+    }
+
     
 [HttpGet("export")]
     public async Task<IActionResult> ExportMyTasks(

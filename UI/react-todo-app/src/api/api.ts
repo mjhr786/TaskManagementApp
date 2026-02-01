@@ -54,7 +54,7 @@ export type GetTasksParams = {
   sort?: 'date' | 'title' | 'status'
   order?: 'asc' | 'desc'
   date?: string         // exact day (YYYY-MM-DD)
-  status?: 'New'|'InProgress'|'Completed'|'Archived' | ''
+  status?: 'New' | 'InProgress' | 'Completed' | 'Archived' | ''
   fromDate?: string     // YYYY-MM-DD
   toDate?: string       // YYYY-MM-DD
 }
@@ -99,7 +99,7 @@ export const api = {
 
   completeTask: (id: string) => request(`/api/tasks/${id}/complete`, { method: 'PATCH' }),
 
-  updateTaskStatus: (id: string, status: 'New'|'InProgress'|'Completed'|'Archived') =>
+  updateTaskStatus: (id: string, status: 'New' | 'InProgress' | 'Completed' | 'Archived') =>
     status === 'Completed'
       ? request(`/api/tasks/${id}/complete`, { method: 'PATCH' })
       : request(`/api/tasks/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
@@ -108,6 +108,8 @@ export const api = {
 
   logHours: (id: string, hours: number) =>
     request(`/api/tasks/${id}/logs`, { method: 'POST', body: JSON.stringify({ hours }) }),
+
+  getTodayTotalHours: () => request('/api/tasks/stats/today'),
 }
 
 export async function exportMyTasksExcel(params: {
@@ -115,8 +117,8 @@ export async function exportMyTasksExcel(params: {
 }) {
   const qs = new URLSearchParams();
   if (params.fromDate) qs.set('fromDate', params.fromDate);
-  if (params.toDate)   qs.set('toDate', params.toDate);
-  if (params.status)   qs.set('status', params.status);
+  if (params.toDate) qs.set('toDate', params.toDate);
+  if (params.status) qs.set('status', params.status);
 
   const url = `${BASE}/api/tasks/export?${qs.toString()}`;
   const token = (localStorage.getItem('todo_token') ?? '');
@@ -132,8 +134,8 @@ export async function exportAllTasksExcel(params: {
 }) {
   const qs = new URLSearchParams();
   if (params.fromDate) qs.set('fromDate', params.fromDate);
-  if (params.toDate)   qs.set('toDate', params.toDate);
-  if (params.status)   qs.set('status', params.status);
+  if (params.toDate) qs.set('toDate', params.toDate);
+  if (params.status) qs.set('status', params.status);
 
   const url = `${BASE}/api/tasks/export/all?${qs.toString()}`;
   const token = (localStorage.getItem('todo_token') ?? '');

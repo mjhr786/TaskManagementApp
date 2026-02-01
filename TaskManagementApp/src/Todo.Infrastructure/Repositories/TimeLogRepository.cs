@@ -16,4 +16,14 @@ public class TimeLogRepository : ITimeLogRepository
 
     public async Task<IEnumerable<TimeLog>> GetByTaskAsync(Guid taskId, CancellationToken ct = default) =>
         await _db.TimeLogs.Where(l => l.TaskItemId == taskId).ToListAsync(ct);
+
+    public async Task<decimal> GetTotalHoursTodayAsync(Guid userId, CancellationToken ct = default)
+    {
+        var today = DateTime.UtcNow.Date;
+        return await _db.Tasks
+            .Where(t => t.UserId == userId)
+            .SelectMany(t => t.TimeLogs)
+            .Where(l => l.LoggedAt.Date == today)
+            .SumAsync(l => l.Hours, ct);
+    }
 }
